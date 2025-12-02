@@ -9,41 +9,7 @@ class LoginFrame(ctk.CTkFrame):
     def __init__(self, master, switch_to_main_callback):
         super().__init__(master)
         self.switch_to_main = switch_to_main_callback
-        """# фреймы
-                auth_frame = ctk.CTkFrame(self, height=500, width=610, fg_color="#2c2c2c", corner_radius=55)
-                auth_frame.pack_propagate(False)
-                auth_frame.place(rely=0.5, relx=0.5, anchor="center")
-                # изображения
-                auth_gradient_btn = ctk.CTkImage(dark_image=Image.open("auth_gradient_button.png"), size=(220, 70))
 
-                auth_btn = ctk.CTkButton(auth_frame, text="", image=auth_gradient_btn, height=70, width=220,
-                                         fg_color="transparent", hover=False,
-                                         command=switch_to_main_callback)
-                auth_btn.place(rely=0.67, relx=0.3)
-
-                auth_label = ctk.CTkLabel(auth_frame, text="Авторизация", width=100, height=80, font=("inter", 32),
-                                          text_color="white", )
-                auth_label.place(rely=0.05, relx=0.1)
-
-                email_entry = ctk.CTkEntry(auth_frame, height=40, width=450,
-                                           placeholder_text="example@gmail.com",
-                                           placeholder_text_color="#D9D9D9",
-                                           font=("inter", 25),
-                                           fg_color="#3B3B3B",
-                                           text_color="white")
-                email_entry.place(relx=0.1, rely=0.25)
-
-                pass_entry = ctk.CTkEntry(auth_frame, height=40, width=450,
-                                          placeholder_text="********",
-                                          placeholder_text_color="#D9D9D9",
-                                          font=("inter", 25),
-                                          fg_color="#3B3B3B",
-                                          text_color="white")
-                pass_entry.place(relx=0.1, rely=0.4)
-
-                forgot = ctk.CTkLabel(auth_frame, text="забыли пароль?", text_color="#b0b0b0", cursor="hand2",
-                                      font=("inter", 15))
-                forgot.place(relx=0.11, rely=0.5)"""
 
         self.pack(fill="both", expand=True)
 
@@ -76,7 +42,7 @@ class LoginFrame(ctk.CTkFrame):
         ctk.CTkButton(auth_frame, text="", image=auth_image_btn, height=70, width=220,
                                  fg_color="transparent", hover=False,
                                  command=self.login).place(rely=0.67, relx=0.3)
-        ctk.CTkButton(self, text="Зарегистрироваться", width=160, command=self.register).pack(pady=(0,10))
+        ctk.CTkButton(auth_frame, text="Зарегистрироваться", width=160, command=self.register).place(rely=0.60, relx=0.35)
 
         self.msg = ctk.CTkLabel(self, text="", text_color="#ff6666")
         self.msg.pack()

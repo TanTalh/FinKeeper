@@ -14,17 +14,22 @@ class MainFrame(ctk.CTkFrame):
         ctk.CTkLabel(self, text=f"Добро пожаловать, {user.email}", font=ctk.CTkFont(size=18, weight="bold")).pack(pady=10)
 
         # список последних трат
-        self.list_frame = ctk.CTkFrame(self)
-        self.list_frame.pack(pady=10, padx=10, fill="both", expand=False)
+        """self.list_frame = ctk.CTkFrame(self)
+        self.list_frame.pack(pady=10, padx=10, fill="both", expand=False)"""
+        """self.misc_frame = ctk.CTkFrame(self, height=800, width=300)
+        self.misc_frame.pack()"""
+
+        self.list_frame = ctk.CTkFrame(self, height=800, width=300)
+        self.list_frame.place(relx=0.78, rely=0)
 
         ctk.CTkLabel(self.list_frame, text="Последние операции:", anchor="w").pack(fill="x", padx=8, pady=(6,0))
-        self.transactions_box = ctk.CTkTextbox(self.list_frame, width=600, height=200)
+        self.transactions_box = ctk.CTkTextbox(self.list_frame, width=400, height=600)
         self.transactions_box.pack(padx=8, pady=8)
         self.transactions_box.configure(state="disabled")
 
         # Кнопки
         btn_frame = ctk.CTkFrame(self)
-        btn_frame.pack(pady=10)
+        btn_frame.place(relx=0.4, rely=0.95)
         ctk.CTkButton(btn_frame, text="Добавить расход", command=self.add_expense).pack(side="left", padx=8)
         ctk.CTkButton(btn_frame, text="Добавить доход", command=self.add_income).pack(side="left", padx=8)
         ctk.CTkButton(btn_frame, text="Выйти", command=self.logout_callback).pack(side="left", padx=8)
@@ -57,7 +62,7 @@ class MainFrame(ctk.CTkFrame):
                 return
             db = SessionLocal()
             try:
-                new = Transaction(amount=val, category="Other", type="expense", user_id=self.user.id)
+                new = Transaction(amount=val, category="Остальное", type="Расход", user_id=self.user.id)
                 db.add(new); db.commit()
             finally:
                 db.close()
@@ -73,7 +78,7 @@ class MainFrame(ctk.CTkFrame):
                 return
             db = SessionLocal()
             try:
-                new = Transaction(amount=val, category="Other", type="income", user_id=self.user.id)
+                new = Transaction(amount=val, category="Остальное", type="Доход", user_id=self.user.id)
                 db.add(new); db.commit()
             finally:
                 db.close()
