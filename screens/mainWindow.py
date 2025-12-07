@@ -56,12 +56,7 @@ class MainFrame(ctk.CTkFrame):
         self.transactions_box.delete("0.0", "end")
 
         mode = self.mode_var.get()
-
-        # соответствие между UI и БД
-        if mode == "Траты":
-            tx_type = "расход"
-        else:
-            tx_type = "доход"
+        tx_type = "expense" if mode == "Траты" else "income"
 
         db = SessionLocal()
         try:
@@ -87,82 +82,48 @@ class MainFrame(ctk.CTkFrame):
         self.transactions_box.configure(state="disabled")
 
     def add_expense(self):
-        dialog = ctk.CTkToplevel(self)
-        dialog.title("Новый расход")
-        dialog.geometry("400x250")
-        dialog.grab_set()
-
-        ctk.CTkLabel(dialog, text="Введите сумму:").pack(pady=5)
-
-        amount_entry = ctk.CTkEntry(dialog)
-        amount_entry.pack(pady=5)
-        ctk.CTkLabel(dialog, text="Выберите категорию").pack(pady=5)
-
-        categories = ["Продукты", "Транспорт", "Развлечения", "Кафе/рестораны", "Здоровье", "Подписки", "Одежда", "Другое"]
-        category_var = ctk.StringVar(value=categories[0])
-        category_menu = ctk.CTkOptionMenu(dialog, values=categories, variable=category_var)
-        category_menu.pack(pady=5)
-
-        def submit():
-            amount_text = amount_entry.get()
-            category = category_var.get()
-            amount = float(amount_text)
-            try:
-                amount = float(amount_text)
-            except AttributeError:
-                return
-
-            db = SessionLocal()
-            try:
-                new = Transaction(
-                    amount=amount,
-                    category=category,
-                    type="расход",
-                    user_id=self.user.id
-                )
-                db.add(new)
-                db.commit()
-            finally:
-                db.close()
-
-            dialog.destroy()
-            self.refresh_transactions()
-
-        ctk.CTkButton(dialog, text="Добавить", command=submit).pack(pady=15)
-
+        self.open_add_dialog("expense")
 
     def add_income(self):
+        self.open_add_dialog("income")
+
+    def open_add_dialog(self,tx_type):
         dialog = ctk.CTkToplevel(self)
+        dialog.title("Новая операция")
         dialog.geometry("400x250")
-        dialog.title("Новый доход")
         dialog.grab_set()
 
-        ctk.CTkLabel(dialog, text="Введите сумму:").pack(pady=5)
+        label_text = "Введите сумму расхода:" if tx_type == "expense" else "Введите сумму дохода:"
+        ctk.CTkLabel(dialog, text=label_text).pack(pady=5)
 
         amount_entry = ctk.CTkEntry(dialog)
         amount_entry.pack(pady=5)
 
-        ctk.CTkLabel(dialog, text="Выберите категорию").pack(pady=5)
+        if tx_type == "expense":
+            categories = [ "Транспорт","Продукты", "Развлечения", "Кафе", "Здоровье", "Подписки", "Одежда", "Другое"]
+        else:
+            categories = ["Зарплата", "Перевод", "Подарок", "Премия"]
 
-        categories = ["Перевод","Зарплата"]
-        category_var = ctk.StringVar(value=categories[0])
+        category_var = ctk.StringVar(value=categories[1])
+
+        ctk.CTkLabel(dialog, text="Категория:").pack(pady=5)
+
         category_menu = ctk.CTkOptionMenu(dialog, variable=category_var, values=categories)
         category_menu.pack(pady=5)
 
         def submit():
-            amount_text = amount_entry.get()
-            category = category_var.get()
-            amount = float(amount_text)
             try:
-                amount = float(amount_text)
-            except AttributeError:
+                amount = float(amount_entry.get())
+            except ValueError:
                 return
+            category = category_var.get()
+
             db = SessionLocal()
             try:
                 new = Transaction(
                     amount=amount,
                     category=category,
-                    type="доход",
+                    type=tx_type,
                     user_id=self.user.id
                 )
                 db.add(new)
@@ -173,6 +134,4 @@ class MainFrame(ctk.CTkFrame):
             dialog.destroy()
             self.refresh_transactions()
 
-        ctk.CTkButton(dialog, text="Добавить", command=submit).pack(pady=15)
-
-
+        ctk.CTkButton(dialog, text="Добавить", command=submit).pack(pady=5)
