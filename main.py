@@ -11,11 +11,24 @@ from screens.mainWindow import MainFrame
 class App(ctk.CTk):
     def __init__(self):
         super().__init__()
-        self.geometry("1280x720")
         self.title("FinKeeper")
+        self.current_frame = None
 
+        self.after(0, lambda: self.center_window_to_display(1280,720))
+
+        self.after(10, self.show_login)
         self.current_frame = None
         self.show_login()
+
+    def center_window_to_display(self, width: int, height: int):
+        self.update_idletasks()
+
+        screen_width = self.winfo_screenwidth()
+        screen_height = self.winfo_screenheight()
+
+        x = (screen_width // 2) - (width // 2)
+        y = (screen_height // 2) - (height // 2)
+        self.geometry(f"{width}x{height}+{x}+{y}")
 
     def clear_frame(self):
         if self.current_frame:
@@ -23,18 +36,23 @@ class App(ctk.CTk):
             self.current_frame = None
 
     def show_login(self):
-        self.geometry("1280x720")
-        self.state("normal")
-
         self.clear_frame()
         self.current_frame = LoginFrame(self, self.on_login_success)
 
     def on_login_success(self, user):
-        self.geometry("1920x1080")
         self.state("zoomed")
-
         self.clear_frame()
         self.current_frame = MainFrame(self, user, self.show_login)
+
+    """def center_window(self, width, height):
+        self.update_idletasks()
+        screen_width = self.winfo_screenwidth()
+        screen_height = self.winfo_screenheight()
+        x = (screen_width // 2) - (width // 2)
+        y = (screen_height // 2) - (height // 2)
+        self.geometry(f"{width}x{height}+{x}+{y}")"""
+
+
 
 if __name__ == "__main__":
     app = App()

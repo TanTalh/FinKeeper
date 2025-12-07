@@ -1,4 +1,6 @@
 import customtkinter as ctk
+from unicodedata import category
+
 from database.db import SessionLocal
 from database.models import Transaction
 from datetime import datetime
@@ -13,12 +15,17 @@ class MainFrame(ctk.CTkFrame):
 
         ctk.CTkLabel(self, text=f"Добро пожаловать, {user.email}", font=ctk.CTkFont(size=18, weight="bold")).pack(pady=10)
 
-        # список последних трат
-        """self.list_frame = ctk.CTkFrame(self)
-        self.list_frame.pack(pady=10, padx=10, fill="both", expand=False)"""
-        """self.misc_frame = ctk.CTkFrame(self, height=800, width=300)
-        self.misc_frame.pack()"""
+        self.mode_var = ctk.StringVar(value="Траты")
 
+        self.segment = ctk.CTkSegmentedButton(
+            self,
+            values=["Траты", "Доходы"],
+            variable=self.mode_var,
+            command=self.on_mode_change
+        )
+        self.segment.place(relx=0.5, rely=0.05, anchor="center")
+
+        # список последних трат
         self.list_frame = ctk.CTkFrame(self, height=800, width=300)
         self.list_frame.place(relx=0.78, rely=0)
 
@@ -30,56 +37,142 @@ class MainFrame(ctk.CTkFrame):
         # Кнопки
         btn_frame = ctk.CTkFrame(self)
         btn_frame.place(relx=0.4, rely=0.95)
-        ctk.CTkButton(btn_frame, text="Добавить расход", command=self.add_expense).pack(side="left", padx=8)
-        ctk.CTkButton(btn_frame, text="Добавить доход", command=self.add_income).pack(side="left", padx=8)
+        self.add_btn = ctk.CTkButton(btn_frame, text="Добавить расход", command=self.add_expense)
+        self.add_btn.pack(side="left", padx=8)
         ctk.CTkButton(btn_frame, text="Выйти", command=self.logout_callback).pack(side="left", padx=8)
 
         self.refresh_transactions()
+
+    def on_mode_change(self, mode):
+        self.refresh_transactions()  # фильтруем список
+
+        if mode == "Траты":
+            self.add_btn.configure(text="Добавить расход", command=self.add_expense)
+        else:
+            self.add_btn.configure(text="Добавить доход", command=self.add_income)
 
     def refresh_transactions(self):
         self.transactions_box.configure(state="normal")
         self.transactions_box.delete("0.0", "end")
 
+        mode = self.mode_var.get()
+
+        # соответствие между UI и БД
+        if mode == "Траты":
+            tx_type = "расход"
+        else:
+            tx_type = "доход"
+
         db = SessionLocal()
         try:
-            txs = db.query(Transaction).filter(Transaction.user_id == self.user.id).order_by(Transaction.timestamp.desc()).limit(10).all()
+            txs = (
+                db.query(Transaction)
+                .filter(
+                    Transaction.user_id == self.user.id,
+                    Transaction.type == tx_type
+                )
+                .order_by(Transaction.timestamp.desc())
+                .limit(10)
+                .all()
+            )
+
             for t in txs:
                 ts = t.timestamp.strftime("%Y-%m-%d %H:%M")
-                line = f"{ts} | {t.type} | {t.category or ''} | {t.amount}\n"
+                line = f"{ts} | {t.category or ''} | {t.amount}\n"
                 self.transactions_box.insert("end", line)
+
         finally:
             db.close()
 
         self.transactions_box.configure(state="disabled")
 
     def add_expense(self):
-        from tkinter.simpledialog import askstring
-        amount = askstring("Добавить расход", "Сумма:")
-        if amount:
+        dialog = ctk.CTkToplevel(self)
+        dialog.title("Новый расход")
+        dialog.geometry("400x250")
+        dialog.grab_set()
+
+        ctk.CTkLabel(dialog, text="Введите сумму:").pack(pady=5)
+
+        amount_entry = ctk.CTkEntry(dialog)
+        amount_entry.pack(pady=5)
+        ctk.CTkLabel(dialog, text="Выберите категорию").pack(pady=5)
+
+        categories = ["Продукты", "Транспорт", "Развлечения", "Кафе/рестораны", "Здоровье", "Подписки", "Одежда", "Другое"]
+        category_var = ctk.StringVar(value=categories[0])
+        category_menu = ctk.CTkOptionMenu(dialog, values=categories, variable=category_var)
+        category_menu.pack(pady=5)
+
+        def submit():
+            amount_text = amount_entry.get()
+            category = category_var.get()
+            amount = float(amount_text)
             try:
-                val = float(amount)
-            except ValueError:
+                amount = float(amount_text)
+            except AttributeError:
                 return
+
             db = SessionLocal()
             try:
-                new = Transaction(amount=val, category="Остальное", type="Расход", user_id=self.user.id)
-                db.add(new); db.commit()
+                new = Transaction(
+                    amount=amount,
+                    category=category,
+                    type="расход",
+                    user_id=self.user.id
+                )
+                db.add(new)
+                db.commit()
             finally:
                 db.close()
+
+            dialog.destroy()
             self.refresh_transactions()
 
+        ctk.CTkButton(dialog, text="Добавить", command=submit).pack(pady=15)
+
+
     def add_income(self):
-        from tkinter.simpledialog import askstring
-        amount = askstring("Добавить доход", "Сумма:")
-        if amount:
+        dialog = ctk.CTkToplevel(self)
+        dialog.geometry("400x250")
+        dialog.title("Новый доход")
+        dialog.grab_set()
+
+        ctk.CTkLabel(dialog, text="Введите сумму:").pack(pady=5)
+
+        amount_entry = ctk.CTkEntry(dialog)
+        amount_entry.pack(pady=5)
+
+        ctk.CTkLabel(dialog, text="Выберите категорию").pack(pady=5)
+
+        categories = ["Перевод","Зарплата"]
+        category_var = ctk.StringVar(value=categories[0])
+        category_menu = ctk.CTkOptionMenu(dialog, variable=category_var, values=categories)
+        category_menu.pack(pady=5)
+
+        def submit():
+            amount_text = amount_entry.get()
+            category = category_var.get()
+            amount = float(amount_text)
             try:
-                val = float(amount)
-            except ValueError:
+                amount = float(amount_text)
+            except AttributeError:
                 return
             db = SessionLocal()
             try:
-                new = Transaction(amount=val, category="Остальное", type="Доход", user_id=self.user.id)
-                db.add(new); db.commit()
+                new = Transaction(
+                    amount=amount,
+                    category=category,
+                    type="доход",
+                    user_id=self.user.id
+                )
+                db.add(new)
+                db.commit()
             finally:
                 db.close()
+
+            dialog.destroy()
             self.refresh_transactions()
+
+        ctk.CTkButton(dialog, text="Добавить", command=submit).pack(pady=15)
+
+
