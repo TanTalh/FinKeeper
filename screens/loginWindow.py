@@ -22,7 +22,7 @@ class LoginFrame(ctk.CTkFrame):
                                  text_color="white", ).place(rely=0.05, relx=0.1)
 
         self.email_entry = ctk.CTkEntry(auth_frame, height=40, width=450,
-                                           placeholder_text="example@gmail.com",
+                                           placeholder_text="example login",
                                            placeholder_text_color="#D9D9D9",
                                            font=("inter", 25),
                                            fg_color="#3B3B3B",
@@ -37,7 +37,7 @@ class LoginFrame(ctk.CTkFrame):
         self.password_entry.place(relx=0.1, rely=0.4)
 
         #кнопки
-        auth_image_btn = ctk.CTkImage(dark_image=Image.open("screens/auth_gradient_button.png"), size=(220, 70))
+        auth_image_btn = ctk.CTkImage(dark_image=Image.open("images/auth_gradient_button.png"), size=(220, 70))
 
         ctk.CTkButton(auth_frame, text="", image=auth_image_btn, height=70, width=220,
                                  fg_color="transparent", hover=False,
