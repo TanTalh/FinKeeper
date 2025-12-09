@@ -21,7 +21,7 @@ class RegisterFrame(ctk.CTkFrame):
         reg_title_image = ctk.CTkImage(dark_image=Image.open("images/register_title.png"), size=(209,45))
 
 
-
+        # поля ввода
         self.login_entry = ctk.CTkEntry(register_frame, height=40, width=450,
                                         placeholder_text="Enter login",
                                         placeholder_text_color="#d9d9d9",

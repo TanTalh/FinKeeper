@@ -16,10 +16,10 @@ class App(ctk.CTk):
 
         self.after(0, lambda: self.center_window_to_display(1280, 720))
 
-        self.after(10, self.show_register)
+        self.after(10, self.show_login)
         self.current_frame = None
 
-
+    # центрирование окна
     def center_window_to_display(self, width: int, height: int):
         self.update_idletasks()
 
@@ -35,7 +35,6 @@ class App(ctk.CTk):
             self.current_frame.destroy()
             self.current_frame = None
 
-
     def show_login(self):
         self.clear_frame()
         self.current_frame = LoginFrame(self, self.on_login_success)
@@ -48,10 +47,6 @@ class App(ctk.CTk):
         self.state("zoomed")
         self.clear_frame()
         self.current_frame = MainFrame(self, user, self.show_login)
-
-
-
-
 
 if __name__ == "__main__":
     app = App()

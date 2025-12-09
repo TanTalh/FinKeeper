@@ -4,7 +4,7 @@ import pywinstyles
 from database.db import SessionLocal
 from database.models import User
 from werkzeug.security import generate_password_hash, check_password_hash
-from sqlalchemy.exc import IntegrityError
+
 
 
 class LoginFrame(ctk.CTkFrame):

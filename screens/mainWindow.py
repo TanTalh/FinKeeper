@@ -7,7 +7,6 @@ from database.db import SessionLocal
 from database.models import Transaction
 
 
-
 CATEGORY_COLORS = {
     "Продукты": "#FF6B6B",
     "Транспорт": "#4ECDC4",
@@ -41,7 +40,7 @@ class MainFrame(ctk.CTkFrame):
         self.add_operation_frame = ctk.CTkFrame(self, height=100, width=372, fg_color="#023E8A", corner_radius=40 )
         self.add_operation_frame.place(relx=0.4, rely=0.85)
 
-        # Баланс
+        # Фрейм с балансом
         self.balance_frame = ctk.CTkFrame(self, width=200,height=70, corner_radius=30)
         self.balance_frame.place(relx=0.65, rely=0.05)
 
@@ -91,7 +90,7 @@ class MainFrame(ctk.CTkFrame):
         )
         self.transactions_area.pack(fill="both", expand=True, padx=10)
 
-
+        # виджет баланса
         self.balance_label = ctk.CTkLabel(self.balance_frame,
                                           text="Баланс: 0 ₽",
                                           font=ctk.CTkFont(family="inter", weight="bold", size=16),
@@ -122,6 +121,7 @@ class MainFrame(ctk.CTkFrame):
 
 
 
+
         # Первичная загрузка
         self.refresh_all()
 
@@ -142,6 +142,7 @@ class MainFrame(ctk.CTkFrame):
 
         self.refresh_all()
 
+    # создание карточки операции
     def create_tx_card(self, parent, tx):
         color = CATEGORY_COLORS.get(tx.category, "#888888")
         ts = tx.timestamp.strftime("%Y-%m-%d %H:%M")
@@ -256,8 +257,6 @@ class MainFrame(ctk.CTkFrame):
 
         ax.set_aspect('equal')  # гарантирует круг
 
-
-
         ax.legend(
             wedges,
             labels,
@@ -273,14 +272,12 @@ class MainFrame(ctk.CTkFrame):
             labelspacing=0.7
         )
 
-
-
-        # отображение в TK: создаём canvas и фиксируем размер виджета в пикселях
+        # создание canvas
         self.chart_canvas = FigureCanvasTkAgg(fig, master=self.chart_frame)
         self.chart_canvas.draw()
 
         canvas_widget = self.chart_canvas.get_tk_widget()
-        # разместим canvas по центру chart_frame и зададим его размер равным frame
+        # размещение canvas по центру chart_frame и задаю его размер как у frame
         canvas_widget.place(relx=0.5, rely=0.5, anchor="center")
         canvas_widget.configure(width=650, height=450)
 
