@@ -1,10 +1,11 @@
 import customtkinter as ctk
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-from matplotlib.animation import FuncAnimation
 from PIL import Image
+from datetime import datetime, timedelta
 from database.db import SessionLocal
 from database.models import Transaction
+
 
 
 CATEGORY_COLORS = {
@@ -28,6 +29,7 @@ class MainFrame(ctk.CTkFrame):
         self.logout_callback = logout_callback
 
         self.chart_canvas = None
+        self.animation = None
         self.pack(fill="both", expand=True)
 
 
@@ -35,13 +37,18 @@ class MainFrame(ctk.CTkFrame):
         self.left_menu = ctk.CTkFrame(self, width=200, fg_color="#1a1a1a")
         self.left_menu.pack(side="left", fill="y")
 
+        # Фрейм добавления операции
         self.add_operation_frame = ctk.CTkFrame(self, height=100, width=372, fg_color="#023E8A", corner_radius=40 )
         self.add_operation_frame.place(relx=0.4, rely=0.85)
+
+        # Баланс
+        self.balance_frame = ctk.CTkFrame(self, width=200,height=70, corner_radius=30)
+        self.balance_frame.place(relx=0.65, rely=0.05)
 
         # Изображения
         self.vector_img = ctk.CTkImage(dark_image=Image.open("images/vector.png"), size=(40, 35))
         self.expense_img = ctk.CTkImage(dark_image=Image.open("images/expense.png"), size=(50,50))
-        self.income_img = ctk.CTkImage(dark_image=Image.open("images/income.png"), size=(55,60))
+        self.income_img = ctk.CTkImage(dark_image=Image.open("images/income.png"), size=(50,50))
 
         # Переключатель режимов
         self.mode_var = ctk.StringVar(value="Траты")
@@ -52,12 +59,21 @@ class MainFrame(ctk.CTkFrame):
             corner_radius=50,
             values=["Траты", "Доходы"],
             variable=self.mode_var,
+            font=ctk.CTkFont(family="inter", size=25),
             command=self.on_mode_change
         )
         self.segment.place(relx=0.5, rely=0.08, anchor="center")
 
+        # Выпадающий список с операциями за разный период
+        self.period_var = ctk.StringVar(value="Все время")
+        self.period_menu = ctk.CTkOptionMenu(self,
+                                             variable=self.period_var,
+                                             values=["День","Неделя","Месяц","Год","Все время"],
+                                             command= lambda _: self.refresh_all())
+        self.period_menu.place(relx=0.25, rely=0.2)
+
         # Расположение диаграммы
-        self.chart_frame = ctk.CTkFrame(self,)
+        self.chart_frame = ctk.CTkFrame(self, width=650, height=450, fg_color="transparent")
         self.chart_frame.place(relx=0.5, rely=0.56, anchor="center")
 
 
@@ -76,40 +92,55 @@ class MainFrame(ctk.CTkFrame):
         self.transactions_area.pack(fill="both", expand=True, padx=10)
 
 
+        self.balance_label = ctk.CTkLabel(self.balance_frame,
+                                          text="Баланс: 0 ₽",
+                                          font=ctk.CTkFont(family="inter", weight="bold", size=16),
+                                          text_color="white")
+        self.balance_label.place(relx=0.1, rely=0.3)
         # Нижние кнопки
         self.add_btn = ctk.CTkButton(self.add_operation_frame,
                                      height=50,
-                                     width=150,
+                                     width=170,
                                      fg_color="#0077B6",
                                      corner_radius=20,
+                                     font=ctk.CTkFont(family="inter", size=18),
                                      text="Добавить трату",
                                      command=self.add_expense)
-        self.add_btn.place(relx=0.25, rely=0.5, anchor="center")
+        self.add_btn.place(relx=0.27, rely=0.5, anchor="center")
 
-        self.exit_btn = ctk.CTkButton(self.left_menu,width=290, height=40, text="Выйти", command=self.logout_callback)
+        self.exit_btn = ctk.CTkButton(self.left_menu,
+                                      width=290,
+                                      height=40,
+                                      text="Выйти",
+                                      font=ctk.CTkFont(family="inter",weight="bold", size=30),
+                                      command=self.logout_callback)
         self.exit_btn.place(relx=0.5, rely=1, anchor="s")
 
         ctk.CTkLabel(self.add_operation_frame, image=self.vector_img, text="").place(relx=0.55, rely=0.3)
         self.operation = ctk.CTkLabel(self.add_operation_frame, image=self.expense_img, text="")
-        self.operation.place(relx=0.75, rely=0.25, anchor="n")
+        self.operation.place(relx=0.75, rely=0.25,)
+
 
 
         # Первичная загрузка
+        self.refresh_all()
+
+    def refresh_all(self):
         self.refresh_transactions()
+        self.update_balance()
         self.update_pie_chart()
 
 
 
     def on_mode_change(self, mode):
         if mode == "Траты":
-            self.add_btn.configure(text="Добавить трату", command=self.add_expense)
+            self.add_btn.configure(text="Добавить трату",font=ctk.CTkFont(family="inter", size=18), command=self.add_expense)
             self.operation.configure(image=self.expense_img)
         else:
-            self.add_btn.configure(text="Добавить доход", command=self.add_income)
+            self.add_btn.configure(text="Добавить доход",font=ctk.CTkFont(family="inter", size=18), command=self.add_income)
             self.operation.configure(image=self.income_img)
 
-        self.refresh_transactions()
-        self.update_pie_chart()
+        self.refresh_all()
 
     def create_tx_card(self, parent, tx):
         color = CATEGORY_COLORS.get(tx.category, "#888888")
@@ -124,6 +155,22 @@ class MainFrame(ctk.CTkFrame):
                      font=("Arial", 13)).pack(anchor="w", padx=10)
         ctk.CTkLabel(frame, text=ts, text_color="white",
                      font=("Arial", 10)).pack(anchor="w", padx=10, pady=(0, 6))
+
+    def filter_by_period(self, txs):
+        now = datetime.now()
+        period = self.period_var.get()
+
+        if period == "День":
+            border = now - timedelta(days=1)
+        elif period == "Неделя":
+            border = now - timedelta(weeks=1)
+        elif period == "Месяц":
+            border = now - timedelta(days=30)
+        elif period == "Год":
+            border = now - timedelta(days=365)
+        else:
+            return txs # Все время
+        return [t for t in txs if t.timestamp >= border]
 
     #  функция обновления
     def refresh_transactions(self):
@@ -144,6 +191,8 @@ class MainFrame(ctk.CTkFrame):
         finally:
             db.close()
 
+        txs = self.filter_by_period(txs)
+
         for t in txs:
             self.create_tx_card(self.transactions_area, t)
 
@@ -162,12 +211,20 @@ class MainFrame(ctk.CTkFrame):
         finally:
             db.close()
 
+        txs = self.filter_by_period(txs)
+
+        # группировка по категориям
         categories = {}
         for t in txs:
             categories[t.category] = categories.get(t.category, 0) + t.amount
 
+        # удаление старого холста
         if self.chart_canvas:
-            self.chart_canvas.get_tk_widget().destroy()
+            try:
+                self.chart_canvas.get_tk_widget().destroy()
+            except Exception:
+                pass
+            self.chart_canvas = None
 
         if not categories:
             return
@@ -176,33 +233,56 @@ class MainFrame(ctk.CTkFrame):
         values = list(categories.values())
         colors = [CATEGORY_COLORS.get(c, "#888888") for c in labels]
 
-        fig = Figure(figsize=(4, 4), dpi=100)
-        ax = fig.add_subplot(111)
-        fig.patch.set_facecolor("none")
-        ax.set_facecolor("none")
 
+        fig = Figure(figsize=(5.5, 5.5), dpi=100)
+
+        ax = fig.add_axes([0.0, 0.0, 0.78, 1.0])  # оставил место для легенды
+
+        # прозрачные фоны
+        fig.patch.set_facecolor("white")
+        ax.set_facecolor("white")
+
+        # создание пирога
         wedges, texts, autotexts = ax.pie(
             values,
+            labels=None,
             colors=colors,
             startangle=90,
             autopct='%1.1f%%',
-            textprops={'color': 'white', 'fontsize': 12}
+            pctdistance=0.75,
+            labeldistance=1.05,
+            textprops={'color': 'white', 'fontsize': 11}
         )
 
-        def animate(i):
-            alpha = i / 20
-            for w in wedges:
-                w.set_alpha(alpha)
-            for t in autotexts:
-                t.set_alpha(alpha)
-            return wedges + autotexts
+        ax.set_aspect('equal')  # гарантирует круг
 
-        FuncAnimation(fig, animate, frames=20, interval=20, blit=False)
 
+
+        ax.legend(
+            wedges,
+            labels,
+            title='Категории',
+            loc='upper left',
+            bbox_to_anchor=(1.02, 0.9),
+            frameon=False,
+            fontsize=10,
+            labelcolor='black',
+            handlelength=1.5,
+            handleheight=1.2,
+            handletextpad=0.5,
+            labelspacing=0.7
+        )
+
+
+
+        # отображение в TK: создаём canvas и фиксируем размер виджета в пикселях
         self.chart_canvas = FigureCanvasTkAgg(fig, master=self.chart_frame)
         self.chart_canvas.draw()
-        self.chart_canvas.get_tk_widget().pack()
 
+        canvas_widget = self.chart_canvas.get_tk_widget()
+        # разместим canvas по центру chart_frame и зададим его размер равным frame
+        canvas_widget.place(relx=0.5, rely=0.5, anchor="center")
+        canvas_widget.configure(width=650, height=450)
 
     def add_expense(self):
         self.open_add_dialog("расход", list(CATEGORY_COLORS.keys()))
@@ -245,7 +325,37 @@ class MainFrame(ctk.CTkFrame):
                 db.close()
 
             dialog.destroy()
-            self.refresh_transactions()
-            self.update_pie_chart()
+            self.refresh_all()
 
         ctk.CTkButton(dialog, text="Добавить", command=submit).pack(pady=15)
+
+    # Обновление баланса
+    def update_balance(self):
+        db = SessionLocal()
+        try:
+            income = db.query(Transaction).filter(
+                Transaction.user_id == self.user.id,
+                Transaction.type == "income"
+            ).all()
+
+            expense = db.query(Transaction).filter(
+                Transaction.user_id == self.user.id,
+                Transaction.type == "expense"
+            ).all()
+        finally:
+            db.close()
+
+        total_income = sum(t.amount for t in income)
+        total_expense = sum(t.amount for t in expense)
+
+        balance = total_income - total_expense
+
+        color = "white"
+        if balance > 0:
+            color = "#54d98c"
+        elif balance < 0:
+            color = "#ec6670"
+        self.balance_label.configure(
+            text=f"Баланс: {balance:.2f} ₽",
+            text_color=color
+        )
