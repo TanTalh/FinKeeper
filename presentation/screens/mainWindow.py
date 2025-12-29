@@ -1,24 +1,16 @@
+from doctest import master
+
 import customtkinter as ctk
-from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from PIL import Image
 from datetime import datetime, timedelta
-from database.db import SessionLocal
-from database.models import Transaction
-
-
-CATEGORY_COLORS = {
-    "Продукты": "#FF6B6B",
-    "Транспорт": "#4ECDC4",
-    "Развлечения": "#FFD93D",
-    "Кафе/рестораны": "#FF9F1C",
-    "Здоровье": "#5F6FFF",
-    "Подписки": "#9D4EDD",
-    "Одежда": "#FF577F",
-    "Другое": "#A0A0A0",
-    "Зарплата": "#2ECC71",
-    "Перевод": "#3498DB",
-}
+from domain.use_cases.get_transactions import GetTransactionsUseCase
+from infrastructure.repositories.sqlalchemy_transaction_repository import SqlAchemyTransactionRepository
+from domain.use_cases.calculate_balance import CalculateBalanceUseCase
+from domain.use_cases.group_by_category import GroupByCategoryUseCase
+from domain.use_cases.add_transaction import AddTransactionUseCase
+from infrastructure.charts.pie_chart import build_pie_chart
+from domain.constants import CATEGORY_COLORS
 
 
 class MainFrame(ctk.CTkFrame):
@@ -31,6 +23,12 @@ class MainFrame(ctk.CTkFrame):
         self.animation = None
         self.pack(fill="both", expand=True)
 
+
+        self.tx_repo = SqlAchemyTransactionRepository()
+        self.add_tx_uc = AddTransactionUseCase(self.tx_repo)
+        self.get_txs_uc = GetTransactionsUseCase(self.tx_repo)
+        self.calc_balance_uc = CalculateBalanceUseCase(self.tx_repo)
+        self.group_by_category_uc = GroupByCategoryUseCase()
 
         # Фрейм с парсером(в будущем) и настройками
         self.left_menu = ctk.CTkFrame(self, width=200, fg_color="#1a1a1a")
@@ -157,21 +155,6 @@ class MainFrame(ctk.CTkFrame):
         ctk.CTkLabel(frame, text=ts, text_color="white",
                      font=("Arial", 10)).pack(anchor="w", padx=10, pady=(0, 6))
 
-    def filter_by_period(self, txs):
-        now = datetime.now()
-        period = self.period_var.get()
-
-        if period == "День":
-            border = now - timedelta(days=1)
-        elif period == "Неделя":
-            border = now - timedelta(weeks=1)
-        elif period == "Месяц":
-            border = now - timedelta(days=30)
-        elif period == "Год":
-            border = now - timedelta(days=365)
-        else:
-            return txs # Все время
-        return [t for t in txs if t.timestamp >= border]
 
     #  функция обновления
     def refresh_transactions(self):
@@ -180,19 +163,13 @@ class MainFrame(ctk.CTkFrame):
 
         mode = self.mode_var.get()
         tx_type = "expense" if mode == "Траты" else "income"
+        period = self.period_var.get()
 
-        db = SessionLocal()
-        try:
-            txs = (
-                db.query(Transaction)
-                .filter(Transaction.user_id == self.user.id, Transaction.type == tx_type)
-                .order_by(Transaction.timestamp.desc())
-                .all()
-            )
-        finally:
-            db.close()
-
-        txs = self.filter_by_period(txs)
+        txs = self.get_txs_uc.filter_by_period(
+            user_id=self.user.id,
+            tx_type=tx_type,
+            period=period
+        )
 
         for t in txs:
             self.create_tx_card(self.transactions_area, t)
@@ -202,22 +179,13 @@ class MainFrame(ctk.CTkFrame):
     def update_pie_chart(self):
         mode = self.mode_var.get()
         tx_type = "expense" if mode == "Траты" else "income"
+        period = self.period_var.get()
 
-        db = SessionLocal()
-        try:
-            txs = db.query(Transaction).filter(
-                Transaction.user_id == self.user.id,
-                Transaction.type == tx_type
-            ).all()
-        finally:
-            db.close()
+        txs = self.get_txs_uc.filter_by_period(user_id=self.user.id,
+                                               tx_type=tx_type,
+                                               period=period
+                                               )
 
-        txs = self.filter_by_period(txs)
-
-        # группировка по категориям
-        categories = {}
-        for t in txs:
-            categories[t.category] = categories.get(t.category, 0) + t.amount
 
         # удаление старого холста
         if self.chart_canvas:
@@ -227,51 +195,15 @@ class MainFrame(ctk.CTkFrame):
                 pass
             self.chart_canvas = None
 
-        if not categories:
+        if not txs:
             return
 
-        labels = list(categories.keys())
-        values = list(categories.values())
+        labels, values = self.group_by_category_uc.group_by_category(txs)
+
         colors = [CATEGORY_COLORS.get(c, "#888888") for c in labels]
 
 
-        fig = Figure(figsize=(5.5, 5.5), dpi=100)
-
-        ax = fig.add_axes([0.0, 0.0, 0.78, 1.0])  # оставил место для легенды
-
-        # прозрачные фоны
-        fig.patch.set_facecolor("white")
-        ax.set_facecolor("white")
-
-        # создание пирога
-        wedges, texts, autotexts = ax.pie(
-            values,
-            labels=None,
-            colors=colors,
-            startangle=90,
-            autopct='%1.1f%%',
-            pctdistance=0.75,
-            labeldistance=1.05,
-            textprops={'color': 'white', 'fontsize': 11}
-        )
-
-        ax.set_aspect('equal')  # гарантирует круг
-
-        ax.legend(
-            wedges,
-            labels,
-            title='Категории',
-            loc='upper left',
-            bbox_to_anchor=(1.02, 0.9),
-            frameon=False,
-            fontsize=10,
-            labelcolor='black',
-            handlelength=1.5,
-            handleheight=1.2,
-            handletextpad=0.5,
-            labelspacing=0.7
-        )
-
+        fig = build_pie_chart(labels,values,colors)
         # создание canvas
         self.chart_canvas = FigureCanvasTkAgg(fig, master=self.chart_frame)
         self.chart_canvas.draw()
@@ -307,19 +239,12 @@ class MainFrame(ctk.CTkFrame):
                 amount = float(amount_entry.get())
             except ValueError:
                 return
-
-            db = SessionLocal()
-            try:
-                tx = Transaction(
-                    amount=amount,
-                    category=category_var.get(),
-                    type="income" if tx_type == "доход" else "expense",
-                    user_id=self.user.id
-                )
-                db.add(tx)
-                db.commit()
-            finally:
-                db.close()
+            self.add_tx_uc.add_transaction(
+                user_id=self.user.id,
+                amount=amount,
+                category=category_var.get(),
+                tx_type="income" if tx_type == "доход" else "expense"
+            )
 
             dialog.destroy()
             self.refresh_all()
@@ -328,30 +253,14 @@ class MainFrame(ctk.CTkFrame):
 
     # Обновление баланса
     def update_balance(self):
-        db = SessionLocal()
-        try:
-            income = db.query(Transaction).filter(
-                Transaction.user_id == self.user.id,
-                Transaction.type == "income"
-            ).all()
-
-            expense = db.query(Transaction).filter(
-                Transaction.user_id == self.user.id,
-                Transaction.type == "expense"
-            ).all()
-        finally:
-            db.close()
-
-        total_income = sum(t.amount for t in income)
-        total_expense = sum(t.amount for t in expense)
-
-        balance = total_income - total_expense
+        balance = self.calc_balance_uc.calculate_balance(self.user.id)
 
         color = "white"
         if balance > 0:
             color = "#54d98c"
         elif balance < 0:
             color = "#ec6670"
+
         self.balance_label.configure(
             text=f"Баланс: {balance:.2f} ₽",
             text_color=color

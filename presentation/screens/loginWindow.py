@@ -1,8 +1,8 @@
 import customtkinter as ctk
 from PIL import Image
 import pywinstyles
-from database.db import SessionLocal
-from database.models import User
+from data.database.db import SessionLocal
+from data.models.models import User
 from werkzeug.security import generate_password_hash, check_password_hash
 
 
