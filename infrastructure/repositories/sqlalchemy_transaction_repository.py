@@ -12,7 +12,7 @@ class SqlAchemyTransactionRepository:
                     Transaction.type == tx_type
                 )
                 .order_by(Transaction.timestamp.desc())
-                .all
+                .all()
             )
         finally:
             db.close()
